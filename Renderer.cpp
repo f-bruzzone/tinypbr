@@ -8,21 +8,15 @@
 #include "Includes/Renderer.h"
 #include "Includes/Vec3f.h"
 
-Renderer::Renderer(int width, int height, float fov, int depth, int samples)
+Renderer::Renderer(int width, int height, float fov, int depth, int samples, Plane& light)
     : _width{width}, _height{height}, _fov{fov}, _maxDepth{depth}, _samples{samples}
 {
-    auto cream = Material{Vec3f(0.8f, 0.8f, 0.8f), Vec3f(0, 0, 0)};
-    auto red = Material{Vec3f(0.7f, 0.2f, 0.2f), Vec3f(0, 0, 0)};
-    auto green = Material{Vec3f(0.2f, 0.7f, 0.2f), Vec3f(0, 0, 0)};
-
-    _planes.emplace_back(Axis::Y, 3, 6.f, -2.f, cream);
-    _planes.emplace_back(Axis::Y, 3, 6.f, 2.f, cream);
-    _planes.emplace_back(Axis::Z, 3, 6.f, -6.f, cream);
-    _planes.emplace_back(Axis::X, 3, 6.f, -2.f, red);
-    _planes.emplace_back(Axis::X, 3, 6.f, 2.f, green);
+    _light = light;
+    _planes.push_back(light);
+    createWalls();
 }
 
-void Renderer::render(const std::vector<Sphere> &spheres, const Light &light)
+void Renderer::render(const std::vector<Sphere> &spheres)
 {
     std::vector<Vec3f> frameBuffer(_width * _height);
     Vec3f origin{0, 0, 0};
@@ -43,7 +37,7 @@ void Renderer::render(const std::vector<Sphere> &spheres, const Light &light)
                     auto x = ((2 * (j + 0.5f) / (float)_width) - 1) * scale * aspect;
                     auto y = -((2 * (i + 0.5f) / (float)_height) - 1) * scale;
                     Ray ray(Vec3f(x, y, -1.f).normalize(), origin);
-                    frameBuffer[i * _width + j] = castRay(ray, spheres, light, 0);
+                    frameBuffer[i * _width + j] = castRay(ray, spheres, 0);
                 }
             } } 
             catch(const std::exception& ex){
@@ -78,6 +72,10 @@ void Renderer::render(const std::vector<Sphere> &spheres, const Light &light)
         c[0] = std::min(1.f, c[0]);
         c[1] = std::min(1.f, c[1]);
         c[2] = std::min(1.f, c[2]);
+        // Reinhard
+        // c[0] = c[0] / (c[0] + 1);
+        // c[1] = c[1] / (c[1] + 1);
+        // c[2] = c[2] / (c[2] + 1);
 
         // gamma correction:
         // c[0] = std::pow(c[0], 1/gamma);
@@ -93,46 +91,53 @@ void Renderer::render(const std::vector<Sphere> &spheres, const Light &light)
     ofs.close();
 }
 
-Vec3f Renderer::castRay(const Ray &ray, const std::vector<Sphere> &spheres, const Light &light, int depth)
+Vec3f Renderer::castRay(const Ray &ray, const std::vector<Sphere> &spheres, int depth)
 {
     Material material;
     Vec3f hit, N;
 
     if (depth >= _maxDepth || !sceneIntersect(ray, spheres, hit, N, material))
-        return Vec3f(0.2f, 0.2f, 0.2f); // background color
+        return Vec3f(0.f, 0.f, 0.f); // background color
 
     if (ray.dir.dot(N) > 0)
         N = N * -1;
 
+    if(material.emissive[0] > 0 || material.emissive[1] > 0 || material.emissive[2] > 0)
+        return material.emissive;
+        
     Vec3f indirectLo;
     // handle reflections
     //  auto reflectDir = ray.dir.reflect(N).normalize();
     //  auto reflectOrig = reflectDir.dot(N) > 0 ? hit + N * 1e-3 : hit - N * 1e-3;
     //  auto reflected = Ray(reflectDir, reflectOrig);
-    //  indirectLo += castRay(reflected, spheres, light, depth + 1) * material.albedo;
+    //  indirectLo += castRay(reflected, spheres, depth + 1) * material.albedo;
 
     for (size_t i = 0; i < _samples; i++)
     {
-        auto randomRay = Ray::genRandomRay(N, hit + N * 1e-3);
-        indirectLo += castRay(randomRay, spheres, light, depth + 1) * material.albedo;
+        auto randomRay = Ray::genRayFromIntersection(N, hit + N * 1e-3);
+        auto cos = std::max(0.f, randomRay.dir.dot(N));
+        indirectLo += castRay(randomRay, spheres, depth + 1) * material.albedo;
     }
     indirectLo /= _samples;
 
-    auto Li = light.position - hit;
+    auto Li = _light.getVecToPlaneFromHit(hit);
     auto wi = Li.normalize();
     auto cosTheta = std::max(0.f, wi.dot(N));
     auto lightDist2 = Li.dot(Li);
-
+    
     Vec3f directLo;
     // handle shadows
     auto shadowOrigin = cosTheta <= 0 ? hit - N * 1e-3 : hit + N * 1e-3;
     Vec3f shadowHit, shadowN;
     Material tmpMat;
-    bool inShadow = sceneIntersect(Ray(wi, shadowOrigin), spheres, shadowHit, shadowN, tmpMat) && lightDist2 > (shadowHit - shadowOrigin).dot(shadowHit - shadowOrigin);
+    bool inShadow = sceneIntersect(Ray(wi, shadowOrigin), spheres, shadowHit, shadowN, tmpMat)
+                    && lightDist2 - 1e-3 > (shadowHit - shadowOrigin).dot(shadowHit - shadowOrigin)
+                    && !(tmpMat.emissive[0] > 0 || tmpMat.emissive[1] > 0 || tmpMat.emissive[2] > 0);
 
     if (!inShadow)
-        directLo += material.albedo * cosTheta; // * (light.intensity / lightDist2); // direct lighting only
-    // directLo += (material.albedo / std::numbers::pi) * cosTheta;// * (light.intensity / lightDist2); // physically based direct lighting?
+        directLo += (material.albedo / std::numbers::pi) * cosTheta * _light.material.emissive;
+        // directLo += material.albedo * cosTheta; // direct lighting only
+
     return directLo + indirectLo;
 }
 
@@ -158,11 +163,23 @@ bool Renderer::sceneIntersect(const Ray &ray, const std::vector<Sphere> &spheres
             continue;
 
         closest_t = t0;
-        N = ray.dir[(int)plane.axis] < 0 ? plane.normal : plane.normal * -1;
+        N = plane.N;
 
-        // material.albedo = (int(1.f * hit[(int)plane.otherAxis1] + 1000) + int(1.f * hit[(int)plane.otherAxis2])) & 1 ? Vec3f(1, 1, 1) : Vec3f(1, .7, .3);
         material = plane.material;
     }
 
     return closest_t < std::numeric_limits<float>::max();
+}
+
+void Renderer::createWalls()
+{
+    auto cream = Material{Vec3f(0.8f, 0.8f, 0.8f), Vec3f(0, 0, 0)};
+    auto red = Material{Vec3f(0.7f, 0.2f, 0.2f), Vec3f(0, 0, 0)};
+    auto green = Material{Vec3f(0.f, 0.7f, 0.2f), Vec3f(0, 0, 0)};
+
+    _planes.emplace_back(Vec3f{-2.f, 2.f, -6.f}, Vec3f{4, 0, 0}, Vec3f{0, 0, 7}, cream);  // ceiling
+    _planes.emplace_back(Vec3f{2.f, 2.f, -6.f}, Vec3f{-6, 0, 0}, Vec3f{0, -6, 0}, cream); // back wall
+    _planes.emplace_back(Vec3f{2.f, -2.f, 0.f}, Vec3f{0, 0, -7}, Vec3f{-4, 0, 0}, cream); // floor
+    _planes.emplace_back(Vec3f{2.f, -2.f, 0.f}, Vec3f{0, 4, 0}, Vec3f{0, 0, -6}, green);  // right wall
+    _planes.emplace_back(Vec3f{-2.f, -2.f, -6.f}, Vec3f{0, 4, 0}, Vec3f{0, 0, 6}, red);   // left wall
 }

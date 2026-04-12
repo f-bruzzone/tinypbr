@@ -16,7 +16,7 @@ public:
     Vec3f dir;
     Vec3f origin;
 
-    static Ray genRandomRay(Vec3f &N, Vec3f &o)
+    static Ray genRayFromIntersection(Vec3f &N, Vec3f &o)
     {
         Vec3f T, B;
         createBasis(N, T, B); // effectively a transformation matrix for our random sample
@@ -29,8 +29,8 @@ public:
 private:
     static Vec3f sampleDisk()
     {
-        // auto r = NumGen::Epsilon(); // biased sampling
-        auto r = std::sqrt(NumGen::Epsilon());
+        // auto r = NumGen::Epsilon();                 // uniform sampling
+        auto r = std::sqrt(NumGen::Epsilon());   // cosine weighted
         auto row = 2.f * (float)std::numbers::pi * NumGen::Epsilon();
 
         auto x = r * std::cos(row);
