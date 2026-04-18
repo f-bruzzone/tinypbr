@@ -7,20 +7,21 @@
 
 int main()
 {
-    int depth;
-    int samples;
+    int depth, samples, shadowSamples;
     std::cout << "Enter depth: " << std::endl;
     std::cin >> depth;
     std::cout << "Enter samples: " << std::endl;
     std::cin >> samples;
+    std::cout << "Enter shadow samples: " << std::endl;
+    std::cin >> shadowSamples;
 
     
     Material nonemissive{Vec3f(0.4, 0.4, 0.3), Vec3f(0.f, 0.f, 0.f)};
     // Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f(2.f, 1.6f, 1.4f)};
-    Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f(2.5f, 2.5f, 2.5f)};
+    Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f(20.f, 20.f, 20.f)};
     
-    Plane lightSource(Vec3f{-0.375f, 2.f, -4.25f}, Vec3f{0.75f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);    // small
-    // Plane lightSource(Vec3f{-1., 2.f, -4.25f}, Vec3f{2.f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);          // large
+    // Plane lightSource(Vec3f{-0.375f, 2.f, -4.25f}, Vec3f{0.75f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);    // small
+    Plane lightSource(Vec3f{-1., 2.f, -4.25f}, Vec3f{2.f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);          // large
     
     std::vector<Sphere> spheres{
         Sphere(Vec3f(0.f, -1.f, -4.5f), 0.75f, nonemissive)
@@ -31,7 +32,7 @@ int main()
         // Sphere(Vec3f(0.75f, -0.75f, -4.75f), 0.35f, nonemissive)
     };
     
-    Renderer renderer{712, 712, 65.f, depth, samples, lightSource};
+    Renderer renderer{712, 712, 65.f, depth, samples, shadowSamples, lightSource};
     renderer.render(spheres);
 
     return 0;

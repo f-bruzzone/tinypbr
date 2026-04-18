@@ -10,4 +10,9 @@ struct Material
 
     Vec3f albedo{0, 0, 0};
     Vec3f emissive{0, 0, 0};
+
+    bool isEmissive()
+    {
+        return emissive[0] > 0 || emissive[1] > 0 || emissive[2] > 0;
+    }
 };

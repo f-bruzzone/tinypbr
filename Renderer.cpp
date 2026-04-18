@@ -8,8 +8,8 @@
 #include "Includes/Renderer.h"
 #include "Includes/Vec3f.h"
 
-Renderer::Renderer(int width, int height, float fov, int depth, int samples, Plane& light)
-    : _width{width}, _height{height}, _fov{fov}, _maxDepth{depth}, _samples{samples}
+Renderer::Renderer(int width, int height, float fov, int depth, int samples, int shadowSamples, Plane &light)
+    : _width{width}, _height{height}, _fov{fov}, _maxDepth{depth}, _samples{samples}, _shadowSamples{shadowSamples}
 {
     _light = light;
     _planes.push_back(light);
@@ -68,14 +68,12 @@ void Renderer::render(const std::vector<Sphere> &spheres)
     float gamma = 2.2f;
     for (size_t i = 0; i < _width * _height; i++)
     {
-        Vec3f &c = frameBuffer[i];
-        c[0] = std::min(1.f, c[0]);
-        c[1] = std::min(1.f, c[1]);
-        c[2] = std::min(1.f, c[2]);
-        // Reinhard
-        // c[0] = c[0] / (c[0] + 1);
-        // c[1] = c[1] / (c[1] + 1);
-        // c[2] = c[2] / (c[2] + 1);
+        // Vec3f &c = frameBuffer[i];
+        // c[0] = std::min(1.f, c[0]);
+        // c[1] = std::min(1.f, c[1]);
+        // c[2] = std::min(1.f, c[2]);
+
+        reinhardToneMap(frameBuffer[i]);
 
         // gamma correction:
         // c[0] = std::pow(c[0], 1/gamma);
@@ -102,9 +100,9 @@ Vec3f Renderer::castRay(const Ray &ray, const std::vector<Sphere> &spheres, int 
     if (ray.dir.dot(N) > 0)
         N = N * -1;
 
-    if(material.emissive[0] > 0 || material.emissive[1] > 0 || material.emissive[2] > 0)
+    if (material.isEmissive())
         return material.emissive;
-        
+
     Vec3f indirectLo;
     // handle reflections
     //  auto reflectDir = ray.dir.reflect(N).normalize();
@@ -120,25 +118,26 @@ Vec3f Renderer::castRay(const Ray &ray, const std::vector<Sphere> &spheres, int 
     }
     indirectLo /= _samples;
 
-    auto Li = _light.getVecToPlaneFromHit(hit);
-    auto wi = Li.normalize();
-    auto cosTheta = std::max(0.f, wi.dot(N));
-    auto lightDist2 = Li.dot(Li);
-    
     Vec3f directLo;
-    // handle shadows
-    auto shadowOrigin = cosTheta <= 0 ? hit - N * 1e-3 : hit + N * 1e-3;
-    Vec3f shadowHit, shadowN;
-    Material tmpMat;
-    bool inShadow = sceneIntersect(Ray(wi, shadowOrigin), spheres, shadowHit, shadowN, tmpMat)
-                    && lightDist2 - 1e-3 > (shadowHit - shadowOrigin).dot(shadowHit - shadowOrigin)
-                    && !(tmpMat.emissive[0] > 0 || tmpMat.emissive[1] > 0 || tmpMat.emissive[2] > 0);
+    for (size_t i = 0; i < _shadowSamples; i++)
+    {
+        auto Li = _light.getVecToPlaneFromHit(hit);
+        auto wi = Li.normalize();
+        auto cosTheta = std::max(0.f, wi.dot(N));
+        auto lightDist2 = Li.dot(Li);
 
-    if (!inShadow)
-        directLo += (material.albedo / std::numbers::pi) * cosTheta * _light.material.emissive;
+        // handle shadows
+        auto shadowOrigin = cosTheta <= 0 ? hit - N * 1e-3 : hit + N * 1e-3;
+        Vec3f shadowHit, shadowN;
+        Material tmpMat;
+        bool inShadow = sceneIntersect(Ray(wi, shadowOrigin), spheres, shadowHit, shadowN, tmpMat) && lightDist2 - 1e-3 > (shadowHit - shadowOrigin).dot(shadowHit - shadowOrigin) && !tmpMat.isEmissive();
+
+        if (!inShadow)
+            directLo += (material.albedo / std::numbers::pi) * cosTheta * _light.material.emissive / lightDist2;
         // directLo += material.albedo * cosTheta; // direct lighting only
+    }
 
-    return directLo + indirectLo;
+    return directLo / _shadowSamples + indirectLo;
 }
 
 bool Renderer::sceneIntersect(const Ray &ray, const std::vector<Sphere> &spheres, Vec3f &hit, Vec3f &N, Material &material)
@@ -182,4 +181,20 @@ void Renderer::createWalls()
     _planes.emplace_back(Vec3f{2.f, -2.f, 0.f}, Vec3f{0, 0, -7}, Vec3f{-4, 0, 0}, cream); // floor
     _planes.emplace_back(Vec3f{2.f, -2.f, 0.f}, Vec3f{0, 4, 0}, Vec3f{0, 0, -6}, green);  // right wall
     _planes.emplace_back(Vec3f{-2.f, -2.f, -6.f}, Vec3f{0, 4, 0}, Vec3f{0, 0, 6}, red);   // left wall
+}
+
+void Renderer::reinhardToneMap(Vec3f &color)
+{
+    // color[0] = color[0] / (color[0] + 1);
+    // color[1] = color[1] / (color[1] + 1);
+    // color[2] = color[2] / (color[2] + 1);
+
+    const float exposure = 0.65f;
+    color *= exposure;
+    
+    float luminance = 0.2126f * color[0] + 0.7152f * color[1] + 0.0722f * color[2];
+    if(luminance <= 0.f)
+        return;
+    float mappedLuminance = luminance / (1.f + luminance);
+    color = color * (mappedLuminance / luminance);
 }
