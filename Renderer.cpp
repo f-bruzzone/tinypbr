@@ -30,7 +30,7 @@ void Renderer::render(const std::vector<Sphere> &spheres)
         threads[t] = std::thread([&, t]()
                                  {
                                     try{
-            for (size_t i = 0; i < _height; i++)
+            for (size_t i = t; i < _height; i += numThreads)
             {
                 for (size_t j = 0; j < _width; j++)
                 {
@@ -57,7 +57,7 @@ void Renderer::render(const std::vector<Sphere> &spheres)
 
     std::filesystem::create_directories(outputPath.parent_path());
 
-    ofs.open(outputPath);
+    ofs.open(outputPath, std::ios::out | std::ios::binary);
 
     if (!ofs || !ofs.is_open())
         std::cerr << "Failed to open file" << std::endl;
