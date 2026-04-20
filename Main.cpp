@@ -18,10 +18,11 @@ int main()
     
     Material nonemissive{Vec3f(0.4, 0.4, 0.3), Vec3f(0.f, 0.f, 0.f)};
     // Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f(2.f, 1.6f, 1.4f)};
-    Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f(20.f, 20.f, 20.f)};
+    Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f{1.0f, 0.85f, 0.6f}};
+    emissive.emissive *= 40.f;   // brighness
     
-    // Plane lightSource(Vec3f{-0.375f, 2.f, -4.25f}, Vec3f{0.75f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);    // small
-    Plane lightSource(Vec3f{-1., 2.f, -4.25f}, Vec3f{2.f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);          // large
+    Plane lightSource(Vec3f{-0.375f, 2.f, -4.25f}, Vec3f{0.75f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);    // small
+    // Plane lightSource(Vec3f{-1., 2.f, -4.25f}, Vec3f{2.f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);          // large
     
     std::vector<Sphere> spheres{
         Sphere(Vec3f(0.f, -1.f, -4.5f), 0.75f, nonemissive)

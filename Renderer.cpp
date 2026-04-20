@@ -172,9 +172,9 @@ bool Renderer::sceneIntersect(const Ray &ray, const std::vector<Sphere> &spheres
 
 void Renderer::createWalls()
 {
-    auto cream = Material{Vec3f(0.8f, 0.8f, 0.8f), Vec3f(0, 0, 0)};
-    auto red = Material{Vec3f(0.7f, 0.2f, 0.2f), Vec3f(0, 0, 0)};
-    auto green = Material{Vec3f(0.f, 0.7f, 0.2f), Vec3f(0, 0, 0)};
+    auto cream = Material{Vec3f(0.74f, 0.74f, 0.64f), Vec3f(0, 0, 0)};
+    auto red = Material{Vec3f(0.63f, 0.06f, 0.05f), Vec3f(0, 0, 0)};
+    auto green = Material{Vec3f(0.13f, 0.45f, 0.1f), Vec3f(0, 0, 0)};
 
     _planes.emplace_back(Vec3f{-2.f, 2.f, -6.f}, Vec3f{4, 0, 0}, Vec3f{0, 0, 7}, cream);  // ceiling
     _planes.emplace_back(Vec3f{2.f, 2.f, -6.f}, Vec3f{-6, 0, 0}, Vec3f{0, -6, 0}, cream); // back wall
@@ -185,16 +185,18 @@ void Renderer::createWalls()
 
 void Renderer::reinhardToneMap(Vec3f &color)
 {
-    // color[0] = color[0] / (color[0] + 1);
-    // color[1] = color[1] / (color[1] + 1);
-    // color[2] = color[2] / (color[2] + 1);
+    // normal reinhard
+    color[0] = color[0] / (color[0] + 1);
+    color[1] = color[1] / (color[1] + 1);
+    color[2] = color[2] / (color[2] + 1);
 
-    const float exposure = 0.65f;
-    color *= exposure;
+    // reinhard-jodie version
+    // const float exposure = 0.65f;
+    // color *= exposure;
     
-    float luminance = 0.2126f * color[0] + 0.7152f * color[1] + 0.0722f * color[2];
-    if(luminance <= 0.f)
-        return;
-    float mappedLuminance = luminance / (1.f + luminance);
-    color = color * (mappedLuminance / luminance);
+    // float luminance = 0.2126f * color[0] + 0.7152f * color[1] + 0.0722f * color[2];
+    // if(luminance <= 0.f)
+    //     return;
+    // float mappedLuminance = luminance / (1.f + luminance);
+    // color = color * (mappedLuminance / luminance);
 }
