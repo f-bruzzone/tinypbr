@@ -19,7 +19,7 @@ int main()
     Material nonemissive{Vec3f(0.4, 0.4, 0.3), Vec3f(0.f, 0.f, 0.f)};
     // Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f(2.f, 1.6f, 1.4f)};
     Material emissive{Vec3f(0.f, 0.f, 0.f), Vec3f{1.0f, 0.85f, 0.6f}};
-    emissive.emissive *= 40.f;   // brighness
+    emissive.emissive *= 20.f;   // brightness
     
     Plane lightSource(Vec3f{-0.375f, 2.f, -4.25f}, Vec3f{0.75f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);    // small
     // Plane lightSource(Vec3f{-1., 2.f, -4.25f}, Vec3f{2.f, 0, 0}, Vec3f{0, 0, 0.4f}, emissive);          // large
