@@ -27,6 +27,11 @@ public:
         return out;
     }
 
+    inline float length()
+    {
+        return std::sqrt(this->dot(*this));
+    }
+
     inline Vec3f normalize()
     {
         auto mag = std::sqrt(this->dot(*this));

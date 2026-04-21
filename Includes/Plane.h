@@ -26,6 +26,8 @@ private:
     Vec3f v;
 
 public:
+    inline float getArea() { return u.cross(v).length(); }
+
     bool intersect(const Ray &ray, Vec3f &hit, float &t0, const float &closest_t) const
     {
         constexpr float EPS = 1e-6;

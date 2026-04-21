@@ -132,8 +132,11 @@ Vec3f Renderer::castRay(const Ray &ray, const std::vector<Sphere> &spheres, int 
         Material tmpMat;
         bool inShadow = sceneIntersect(Ray(wi, shadowOrigin), spheres, shadowHit, shadowN, tmpMat) && lightDist2 - 1e-3 > (shadowHit - shadowOrigin).dot(shadowHit - shadowOrigin) && !tmpMat.isEmissive();
 
-        if (!inShadow)
-            directLo += (material.albedo / std::numbers::pi) * cosTheta * _light.material.emissive / lightDist2;
+        if (!inShadow){
+            float cosLight = std::max(0.f, _light.N.dot(Li * -1));
+            float G = (cosTheta * cosLight) / lightDist2;
+            directLo += (material.albedo / std::numbers::pi) * cosTheta * _light.material.emissive * G * _light.getArea();
+        }
         // directLo += material.albedo * cosTheta; // direct lighting only
     }
 
