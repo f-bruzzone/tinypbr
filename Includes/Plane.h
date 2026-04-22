@@ -14,7 +14,9 @@ public:
     }
     Plane(Vec3f &&o, Vec3f &&l, Vec3f &&w, Material &&mat) : material{mat}, origin{o}, u{l}, v{w}
     {
-        N = u.cross(v).normalize();
+        auto cross = u.cross(v);
+        area = cross.length();
+        N = cross.normalize();
     }
 
     Material material;
@@ -24,9 +26,10 @@ public:
 private:
     Vec3f u;
     Vec3f v;
+    float area = 0;
 
 public:
-    inline float getArea() { return u.cross(v).length(); }
+    inline float getArea() { return area == 0 ? u.cross(v).length() : area; }
 
     bool intersect(const Ray &ray, Vec3f &hit, float &t0, const float &closest_t) const
     {
